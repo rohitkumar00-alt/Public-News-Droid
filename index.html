@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Public News Droid — Live India Edition</title>
+<style>
+  :root {
+    --bg: #0b0f1a; --panel: #131a2a; --accent: #2e7d32; --accent2: #f9a825;
+    --text: #eaf2ff; --muted: #93a2c0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    background: radial-gradient(circle at 50% 0%, #1a2338, var(--bg));
+    color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 24px 16px 40px;
+  }
+  h1 {
+    font-size: clamp(22px, 5vw, 32px); margin: 6px 0 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-align: center;
+  }
+  .subtitle { color: var(--muted); margin-bottom: 20px; text-align: center; font-size: 14px; }
+  .stage {
+    background: var(--panel); border: 1px solid #223052; border-radius: 20px;
+    padding: 26px 20px; width: 100%; max-width: 520px;
+    display: flex; flex-direction: column; align-items: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+  }
+  .robot { width: 140px; height: 140px; margin-bottom: 8px; }
+  .robot .mouth { transition: transform 0.12s ease; transform-origin: center; }
+  .robot.talking .mouth { animation: talk 0.35s infinite ease-in-out; }
+  @keyframes talk { 0%,100%{transform:scaleY(1);} 50%{transform:scaleY(2.2);} }
+  .robot .eye { animation: blink 4s infinite; }
+  @keyframes blink { 0%,92%,100%{transform:scaleY(1);} 95%{transform:scaleY(0.1);} }
+
+  .status { font-size: 13px; color: var(--accent); min-height: 18px; margin-bottom: 10px; text-align: center; }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 14px; width: 100%; }
+  select, button.primary {
+    padding: 12px 16px; border-radius: 10px; border: 1px solid #2a3a5f;
+    background: #0e1526; color: var(--text); font-size: 16px; /* 16px avoids iOS auto-zoom on tap */
+    min-height: 44px; /* comfortable touch target */
+  }
+  button.primary {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    color: #071019; font-weight: 700; border: none; cursor: pointer;
+  }
+  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary {
+    padding: 12px 16px; border-radius: 10px; border: 1px solid #2a3a5f;
+    background: transparent; color: var(--muted); cursor: pointer; font-size: 14px;
+    min-height: 44px;
+  }
+
+  .headlines { width: 100%; margin-top: 8px; }
+  .headline {
+    background: #0e1526; border: 1px solid #223052; border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 8px; font-size: 13.5px; line-height: 1.5;
+    cursor: pointer; transition: border-color 0.15s;
+  }
+  .headline:hover { border-color: var(--accent); }
+  .headline.active { border-color: var(--accent2); background: #17203a; }
+  .headline .src { color: var(--muted); font-size: 11px; margin-top: 4px; display: block; }
+
+  .note { margin-top: 16px; font-size: 11.5px; color: var(--muted); text-align: center; max-width: 520px; }
+  .error { color: #ff6b6b; font-size: 13px; text-align: center; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+  <h1>📡 Public News Droid</h1>
+  <div class="subtitle">Live India Edition — real headlines, read aloud in real time.</div>
+
+  <div class="stage">
+    <svg class="robot" id="robot" viewBox="0 0 200 200">
+      <rect x="45" y="20" width="20" height="18" rx="4" fill="var(--accent)"/>
+      <circle cx="55" cy="14" r="6" fill="var(--accent)"/>
+      <rect x="135" y="20" width="20" height="18" rx="4" fill="var(--accent2)"/>
+      <circle cx="145" cy="14" r="6" fill="var(--accent2)"/>
+      <rect x="30" y="35" width="140" height="120" rx="24" fill="#1c2740" stroke="var(--accent)" stroke-width="2"/>
+      <circle class="eye" cx="72" cy="85" r="10" fill="var(--accent)"/>
+      <circle class="eye" cx="128" cy="85" r="10" fill="var(--accent2)"/>
+      <rect class="mouth" x="75" y="118" width="50" height="10" rx="5" fill="var(--accent)"/>
+      <rect x="15" y="70" width="15" height="40" rx="6" fill="#1c2740" stroke="var(--accent)" stroke-width="2"/>
+      <rect x="170" y="70" width="15" height="40" rx="6" fill="#1c2740" stroke="var(--accent2)" stroke-width="2"/>
+    </svg>
+
+    <div class="status" id="status">Ready.</div>
+
+    <div class="row">
+      <select id="category">
+        <option value="general">General</option>
+        <option value="nation">India / Nation</option>
+        <option value="business">Business</option>
+        <option value="technology">Technology</option>
+        <option value="sports">Sports</option>
+        <option value="science">Science</option>
+        <option value="health">Health</option>
+        <option value="entertainment">Entertainment</option>
+      </select>
+      <button class="primary" id="fetchBtn">🔄 Get Live Headlines</button>
+      <button class="secondary" id="stopBtn">⏹ Stop Speaking</button>
+    </div>
+
+    <div id="errorBox"></div>
+    <div class="headlines" id="headlines"></div>
+  </div>
+
+  <div class="note">
+    Powered by real live news from GNews.io (India edition). Click any headline to have the droid read it aloud again.
+    Free plan allows ~100 requests/day — plenty for a demo.
+  </div>
+
+<script>
+  const robot = document.getElementById('robot');
+  const statusEl = document.getElementById('status');
+  const fetchBtn = document.getElementById('fetchBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const categorySel = document.getElementById('category');
+  const headlinesEl = document.getElementById('headlines');
+  const errorBox = document.getElementById('errorBox');
+
+  let currentArticles = [];
+  let indianVoice = null;
+  let voicesReady = false;
+
+  function setStatus(t) { statusEl.textContent = t; }
+  function setError(t) { errorBox.innerHTML = t ? `<div class="error">${t}</div>` : ''; }
+
+  // Pick the best available Indian-English voice from whatever the browser/OS provides.
+  function pickIndianVoice() {
+    if (!('speechSynthesis' in window)) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) return null;
+    // Prefer an explicit en-IN voice, then any voice with "India" in its name
+    // (but only if it's actually English — a name match alone isn't enough,
+    // otherwise a non-English voice with "India" in its name could get picked
+    // and produce garbled, meaningless audio), then any en-* voice.
+    let v = voices.find(v => v.lang && v.lang.toLowerCase() === 'en-in');
+    if (!v) v = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('en-in'));
+    if (!v) v = voices.find(v => /india/i.test(v.name) && v.lang && v.lang.toLowerCase().startsWith('en'));
+    if (!v) v = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+    return v || null;
+  }
+
+  function refreshVoices() {
+    indianVoice = pickIndianVoice();
+    voicesReady = true;
+  }
+
+  if ('speechSynthesis' in window) {
+    refreshVoices();
+    // Voice lists load asynchronously in most browsers (esp. mobile).
+    window.speechSynthesis.onvoiceschanged = refreshVoices;
+    // Some mobile browsers never fire onvoiceschanged reliably — poll briefly as a backup.
+    let voicePolls = 0;
+    const voicePollTimer = setInterval(() => {
+      refreshVoices();
+      voicePolls++;
+      if (indianVoice || voicePolls > 10) {
+        clearInterval(voicePollTimer);
+        // Diagnostic: briefly show how many voices this device actually has.
+        // If this says "0 voices", the device itself has no TTS engine installed —
+        // that's a phone settings issue, not something fixable in the webpage.
+        const count = window.speechSynthesis.getVoices().length;
+        setStatus('Ready. (' + count + ' voice(s) available on this device)');
+      }
+    }, 400);
+  }
+
+  let audioUnlocked = false;
+
+  // Chrome/Edge have a known bug where speechSynthesis silently auto-pauses
+  // after roughly 15 seconds of continuous speech and never resumes on its
+  // own — with longer headlines (title + description) this made some
+  // headlines go silent partway through, or appear to "never come." This
+  // periodically nudges the engine awake while it's supposed to be speaking.
+  let resumeTimer = null;
+  function startResumeHack() {
+    stopResumeHack();
+    resumeTimer = setInterval(() => {
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      }
+    }, 4000);
+  }
+  function stopResumeHack() {
+    if (resumeTimer) clearInterval(resumeTimer);
+    resumeTimer = null;
+  }
+
+  // iOS Safari / some Android browsers only allow speechSynthesis to start
+  // if it's kicked off synchronously inside a real user tap. Fire a near-silent
+  // "primer" utterance right on tap, before any awaited fetch, to unlock audio.
+  function unlockSpeechForMobile() {
+    if (audioUnlocked || !('speechSynthesis' in window)) return;
+    try {
+      const primer = new SpeechSynthesisUtterance(' ');
+      primer.volume = 0;
+      window.speechSynthesis.speak(primer);
+      audioUnlocked = true;
+    } catch (e) { /* ignore */ }
+  }
+
+  function speak(text, onDone) {
+    if (!('speechSynthesis' in window)) { setStatus('Speech not supported in this browser.'); return; }
+    window.speechSynthesis.cancel(); // interrupt whatever's currently playing so taps feel instant
+    if (!voicesReady || !indianVoice) refreshVoices();
+
+    const utter = new SpeechSynthesisUtterance(text);
+    // Slower, clearer delivery.
+    utter.rate = 0.78;
+    utter.pitch = 1.0;
+
+    if (indianVoice) {
+      utter.voice = indianVoice;
+      utter.lang = indianVoice.lang || 'en-IN';
+    } else {
+      const voices = window.speechSynthesis.getVoices();
+      const englishVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+      if (englishVoice) {
+        utter.voice = englishVoice;
+        utter.lang = englishVoice.lang;
+      } else {
+        utter.lang = 'en-US';
+      }
+    }
+
+    let started = false;   // true once speech actually begins
+    let finished = false;  // true once we've called onDone (guards against calling it twice)
+
+    function finishOnce(message, skipCallback) {
+      if (finished) return;
+      finished = true;
+      robot.classList.remove('talking');
+      setStatus(message);
+      if (!skipCallback && onDone) onDone();
+    }
+
+    utter.onstart = () => {
+      started = true;
+      robot.classList.add('talking');
+      setStatus('🔴 On air...');
+    };
+    utter.onend = () => {
+      finishOnce('Ready.');
+    };
+    utter.onerror = (e) => {
+      // "canceled"/"interrupted" means a new speak() call took over on purpose
+      // (e.g. the user tapped a different headline) — not a real failure, so
+      // don't also fire onDone here, or the auto-bulletin would wrongly
+      // advance to the next headline on top of the one the user just picked.
+      const interrupted = e.error === 'canceled' || e.error === 'interrupted';
+      finishOnce(
+        interrupted ? 'Ready.' : ('Voice error: ' + (e.error || 'unknown') + '. Skipping ahead...'),
+        interrupted
+      );
+    };
+
+    window.speechSynthesis.speak(utter);
+
+    // Watchdog: on some Android devices with no TTS voices installed,
+    // speak() neither starts nor errors — it just hangs silently forever,
+    // which would freeze the whole bulletin. If nothing happens within
+    // 4 seconds AND the engine genuinely isn't speaking, give up on this
+    // headline and move to the next one. (We double-check `speechSynthesis
+    // .speaking` here because some browsers never fire onstart even though
+    // audio is actually playing — without this check the watchdog would
+    // wrongly cut off headlines that were working fine, making them look
+    // "missing.")
+    setTimeout(() => {
+      if (started) return;
+      if (window.speechSynthesis.speaking) {
+        started = true;
+        return;
+      }
+      window.speechSynthesis.cancel();
+      finishOnce('No voice response from this device — skipping ahead.');
+    }, 4000);
+  }
+
+  stopBtn.addEventListener('click', () => {
+    stopResumeHack();
+    window.speechSynthesis.cancel();
+    robot.classList.remove('talking');
+    setStatus('Stopped.');
+  });
+
+  function renderHeadlines(articles) {
+    headlinesEl.innerHTML = '';
+    articles.forEach((a, i) => {
+      const div = document.createElement('div');
+      div.className = 'headline';
+      div.innerHTML = `${a.title}<span class="src">${a.source?.name || 'Unknown source'}</span>`;
+      div.addEventListener('click', () => {
+        document.querySelectorAll('.headline').forEach(h => h.classList.remove('active'));
+        div.classList.add('active');
+        const spoken = a.title + (a.description ? '. ' + a.description : '');
+        speak(spoken);
+      });
+      headlinesEl.appendChild(div);
+    });
+  }
+
+  async function readAllAloud(articles) {
+    startResumeHack();
+    let i = 0;
+    function next() {
+      if (i >= articles.length) { stopResumeHack(); setStatus('Bulletin complete.'); return; }
+      document.querySelectorAll('.headline').forEach((h, idx) => h.classList.toggle('active', idx === i));
+      const a = articles[i];
+      const spoken = a.title + (a.description ? '. ' + a.description : '');
+      i++;
+      setTimeout(() => speak(spoken, next), 250);
+    }
+    next();
+  }
+
+  async function fetchNews() {
+    setError('');
+    setStatus('Fetching live headlines...');
+    fetchBtn.disabled = true;
+    const category = categorySel.value;
+
+    // Calls our own Netlify serverless function instead of GNews directly,
+    // which avoids the browser CORS block and keeps the API key private.
+    const url = `/.netlify/functions/news?category=${encodeURIComponent(category)}`;
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.errors?.[0] || `Request failed (${res.status})`);
+      }
+      const data = await res.json();
+      if (!data.articles || data.articles.length === 0) {
+        setError('No articles returned. Try a different category.');
+        setStatus('Ready.');
+        fetchBtn.disabled = false;
+        return;
+      }
+      currentArticles = data.articles;
+      renderHeadlines(currentArticles);
+      setStatus('Presenting live bulletin...');
+      readAllAloud(currentArticles);
+    } catch (e) {
+      let hint = '';
+      if (location.protocol === 'file:') {
+        hint = ' You are opening this as a local file (file://). Some mobile browsers block network requests from local files — try hosting it online (e.g. GitHub Pages, Netlify Drop) or via a local server instead of double-tapping the file directly.';
+      } else if (e.message === 'Failed to fetch' || e.name === 'TypeError') {
+        hint = ' This usually means no internet connection, a blocked request (ad-blocker/VPN/firewall), or the API host is unreachable from this network.';
+      }
+      setError(`Could not fetch live news: [${e.name}] ${e.message}.${hint} (protocol: ${location.protocol}, online: ${navigator.onLine})`);
+      setStatus('Ready.');
+    }
+    fetchBtn.disabled = false;
+  }
+
+  fetchBtn.addEventListener('click', () => {
+    unlockSpeechForMobile(); // must run synchronously inside the tap for mobile browsers
+    fetchNews();
+  });
+</script>
+</body>
+</html>
